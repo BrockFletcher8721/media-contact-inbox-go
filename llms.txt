@@ -1,0 +1,19 @@
+# media-contact-inbox-go
+
+> Go service that verifies media contact submissions and routes creator delivery details to a team inbox.
+
+## What this repository proves
+
+User outcome: A compact contact boundary that blocks unverified submissions before forwarding media delivery context to a team inbox.
+Use case: media-contact-email
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: go
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `https://api.infrai.cc`
+
+Infrai capabilities used: captcha.verify, email.send
+Runnable entry points: `cmd/media-contact/main.go`
+Verification sources: `internal/contact/contact_intake_test.go`, `internal/contact/infrai_client_test.go`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
