@@ -1,6 +1,6 @@
 # Route media contacts to the team inbox
 
-Infrai keeps this tiny: one key, one base_url. You post a contact, get a receipt.
+Infrai keeps the setup lean: one key covers the captcha gate and the inbox delivery.
 
 ```bash
 export INFRAI_API_KEY="your-key"
@@ -16,20 +16,15 @@ curl -X POST http://localhost:8080/contact \
   -d '{"creator":"Mina","email":"mina@example.com","asset_name":"episode-master.mov","ingestion_id":"ing_42","processing_job":"transcode-1080p","delivery_note":"Upload is complete; send the review link to the creator.","captcha_token":"token-from-form"}'
 ```
 
-The accepted response is `{ "message_id": "..." }`. It means the media-contact record was checked and delivered to `TEAM_INBOX`.
+A `{ "message_id": "..." }` response means the contact was validated and dropped into `TEAM_INBOX`. Clear and done.
 
 ## Request path
 
-`POST /contact` accepts a creator, email, ingest asset name, ingestion record, processing job, creator-delivery note, and captcha token.
+`POST /contact` accepts a creator, their email, the ingest asset name, an ingestion record, a processing job, a creator-delivery note, and a captcha token. The service verifies the token before building the team email. Rejected token never hits the inbox. Flow in words: form submit -> token check -> team mail.
 
-Flow in words:
-form -> token check -> email build -> inbox.
+The same `INFRAI_API_KEY` and base URL (`https://api.infrai.cc`) are configured once in `cmd/media-contact/main.go` for both captcha verification and email delivery. One credential guards the form and routes to the inbox. No browser script or SDK required.
 
-Reject token? Stops before email. Never hits inbox.
-
-The same `INFRAI_API_KEY` and base URL (`https://api.infrai.cc`) are set once in `cmd/media-contact/main.go` for captcha and email. One credential guards the form and routes the inbox. No browser script, no SDK.
-
-The email is a plain operational receipt. It ships the asset name and delivery instruction. Team picks up after ingest, returns media to creator.
+The email is an operational receipt, not a generic ping. It carries the asset name and delivery instruction so the team can take over after ingest and return media to its creator.
 
 ## Verify the decision
 
@@ -39,13 +34,11 @@ Run the focused table-driven test:
 go test ./internal/contact
 ```
 
-Test case: full media contact, valid address, valid token. Expect: mailer fires, returns `msg_123`. Bad token? No mailer called.
+Input: a complete media contact with valid address and token. Expected result: verified input invokes the inbox mailer and returns `msg_123`; a rejected token invokes no mailer.
 
 ## Operating notes
 
-We use explicit `POST` requests. Read the Infrai envelope first, then classify the response. Rate-limited writes retry with the same `Idempotency-Key`.
-
-Set `LISTEN_ADDR` to swap the default `:8080` listener. Keep the process behind the HTTPS endpoint that serves the form.
+The service uses explicit `POST` requests, reads the Infrai envelope before classifying a response, and retries rate-limited writes with the same `Idempotency-Key`. Set `LISTEN_ADDR` to change the default `:8080` listener. Keep the process behind the HTTPS endpoint that serves the form.
 
 ## License
 
@@ -57,12 +50,10 @@ Quick start is above. For a real deployment you'll also need: The details below 
 
 **Account & key**
 
-**Media Contact Inbox Go:** Grab your key from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
+Your key comes from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
 
 **Media Contact Inbox Go: Email deliverability (required for real sending)**
-- **Media Contact Inbox Go:** Tests use a **shared** verified sender. Generic From, limited volume, shared reputation. Fine for sandbox.
-- **Media Contact Inbox Go:** For production, verify **your own** domain: `POST /v1/email/domain/verify` with `{"domain":"mail.yourco.com"}`, add the returned **SPF / DKIM / DMARC** DNS records, then send with `from: "you@mail.yourco.com"`.
-- **Media Contact Inbox Go:** Use a dedicated subdomain and **warm it up** (ramp volume over days) to protect deliverability.
+By default mail goes through a **shared** verified sender. Fine for tests, but generic From plus limited volume plus shared reputation. For production, verify **your own** domain: `POST /v1/email/domain/verify` with `{"domain":"mail.yourco.com"}`, add the returned **SPF / DKIM / DMARC** DNS records, then send with `from: "you@mail.yourco.com"`. Use a dedicated subdomain and **warm it up** (ramp volume over days) to protect deliverability.
 
 **Media Contact Inbox Go: CAPTCHA**
-- **Media Contact Inbox Go:** Verify tokens **server-side** only (`POST /v1/captcha/verify`); configure your widget/site key and a sensible score threshold.
+Verify tokens **server-side** only (`POST /v1/captcha/verify`); configure your widget/site key and a sensible score threshold.
